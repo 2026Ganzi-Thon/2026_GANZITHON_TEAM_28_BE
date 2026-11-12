@@ -3,8 +3,6 @@ package com.team28.domain.goal.service;
 import com.team28.domain.activity.entity.GoalActivity;
 import com.team28.domain.activity.enums.ActivityType;
 import com.team28.domain.activity.repository.GoalActivityRepository;
-import com.team28.domain.ai.dto.AiStepResult;
-import com.team28.domain.ai.service.AiService;
 import com.team28.domain.goal.dto.GoalRequest;
 import com.team28.domain.goal.dto.GoalResponse;
 import com.team28.domain.goal.entity.Goal;
@@ -13,11 +11,12 @@ import com.team28.domain.goal.enums.GoalStatus;
 import com.team28.domain.goal.exception.GoalErrorStatus;
 import com.team28.domain.goal.repository.GoalRepository;
 import com.team28.domain.step.entity.Step;
-import com.team28.domain.step.enums.StepStatus;
 import com.team28.domain.step.exception.StepErrorStatus;
 import com.team28.domain.step.repository.StepRepository;
+import com.team28.domain.step.service.TemporaryStep;
 import com.team28.domain.user.entity.User;
 import com.team28.global.apiPayload.exception.GeneralException;
+import com.team28.global.common.TextNormalizer;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,7 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
  * - 새 목표 생성·이어하기 시 기존 진행 중 목표는 자동으로 쉬어가기
  * - 완료·중단된 목표는 개수에 포함하지 않음
  *
- * AI 호출이 포함된 메서드는 트랜잭션 안에서 AI 응답을 기다립니다. (해커톤 규모라 단순하게 유지)
+ * AI 연결은 AI 담당자가 TODO(AI 연결) 자리에 붙입니다. 지금은 TemporaryStep 의 임시 문장을 씁니다.
  */
 @Service
 @RequiredArgsConstructor
@@ -38,13 +37,11 @@ public class GoalService {
 
     public static final int MAX_ACTIVE_GOALS = 3;
     private static final List<GoalStatus> ACTIVE_STATUSES = List.of(GoalStatus.IN_PROGRESS, GoalStatus.RESTING);
-    private static final int RECENT_TRIED_LIMIT = 5;
 
     private final GoalRepository goalRepository;
     private final StepRepository stepRepository;
     private final GoalActivityRepository activityRepository;
     private final GoalReader goalReader;
-    private final AiService aiService;
 
     /** 홈 (S-02): 진행 중 목표 1개 + 쉬어가는 목표 목록 */
     public GoalResponse.Home getHome(User user) {
@@ -63,25 +60,25 @@ public class GoalService {
         return new GoalResponse.Home(inProgress, resting, activeCount, MAX_ACTIVE_GOALS);
     }
 
-    /** 목표 생성 (S-03) + AI 첫 걸음. 위기 신호면 저장하지 않음 */
+    /** 목표 생성 (S-03) + 첫 걸음. 위기 신호면 저장하지 않음 */
     @Transactional
     public GoalCreateResult create(User user, GoalRequest.Create request) {
         if (goalRepository.countByUserAndStatusIn(user, ACTIVE_STATUSES) >= MAX_ACTIVE_GOALS) {
             throw new GeneralException(GoalErrorStatus.LIMIT_EXCEEDED);
         }
 
-        String content = request.content().strip();
-        AiStepResult ai = aiService.firstStep(content, request.energyLevel(), request.burdenLevel());
-        if (ai.isCrisis()) {
-            return GoalCreateResult.ofCrisis();
-        }
+        String content = TextNormalizer.clean(request.content());
+        // TODO(AI 연결): 목표·에너지·부담으로 위기 감지 + 첫 걸음 생성
+        //  - 위기 신호면 아무것도 저장하지 말고 return GoalCreateResult.ofCrisis();
+        //  - AI 가 준 행동 문장, 더 작게 가능 여부, 마지막 걸음 여부를 아래 Step.next(...) 에 넣기
+        String firstStep = TemporaryStep.first(content);
 
         restCurrentInProgress(user);
 
         Goal goal = goalRepository.save(
                 Goal.create(user, content, request.energyLevel(), request.burdenLevel()));
         Step first = stepRepository.save(
-                Step.next(goal, 1, request.energyLevel(), ai.step(), ai.canShrinkMore(), ai.isLastStep()));
+                Step.next(goal, 1, request.energyLevel(), firstStep, true, false));
 
         return GoalCreateResult.of(GoalResponse.Detail.of(goal, 0, first));
     }
@@ -107,16 +104,12 @@ public class GoalService {
         int nextSequence = stepRepository.findFirstByGoalOrderBySequenceDescIdDesc(goal)
                 .map(step -> step.getSequence() + 1)
                 .orElse(1);
-        List<String> triedSteps = stepRepository
-                .findTop5ByGoalAndStatusOrderByTriedAtDesc(goal, StepStatus.TRIED)
-                .stream()
-                .limit(RECENT_TRIED_LIMIT)
-                .map(Step::getContent)
-                .toList();
-
-        AiStepResult ai = aiService.nextStep(goal.getContent(), energy, goal.getBurdenLevel(), triedSteps);
+        // TODO(AI 연결): 다시 고른 에너지 + 최근 해본 행동으로 다음 걸음 생성
+        //  - 최근 해본 행동: stepRepository.findTop5ByGoalAndStatusOrderByTriedAtDesc(goal, StepStatus.TRIED)
+        //  - AI 가 준 행동 문장, 더 작게 가능 여부, 마지막 걸음 여부를 아래 Step.next(...) 에 넣기
+        String nextContent = TemporaryStep.next(goal.getContent(), nextSequence);
         Step step = stepRepository.save(
-                Step.next(goal, nextSequence, energy, ai.step(), ai.canShrinkMore(), ai.isLastStep()));
+                Step.next(goal, nextSequence, energy, nextContent, true, false));
 
         return GoalResponse.Detail.of(goal, goalReader.countTried(goal), step);
     }

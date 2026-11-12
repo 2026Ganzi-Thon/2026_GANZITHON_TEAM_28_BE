@@ -3,8 +3,6 @@ package com.team28.domain.step.service;
 import com.team28.domain.activity.entity.GoalActivity;
 import com.team28.domain.activity.enums.ActivityType;
 import com.team28.domain.activity.repository.GoalActivityRepository;
-import com.team28.domain.ai.dto.AiStepResult;
-import com.team28.domain.ai.service.AiService;
 import com.team28.domain.goal.dto.GoalResponse;
 import com.team28.domain.goal.entity.Goal;
 import com.team28.domain.goal.enums.GoalStatus;
@@ -15,7 +13,6 @@ import com.team28.domain.step.exception.StepErrorStatus;
 import com.team28.domain.step.repository.StepRepository;
 import com.team28.domain.user.entity.User;
 import com.team28.global.apiPayload.exception.GeneralException;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,9 +25,8 @@ public class StepService {
     private final StepRepository stepRepository;
     private final GoalActivityRepository activityRepository;
     private final GoalReader goalReader;
-    private final AiService aiService;
 
-    /** 더 작게 (S-04) 🤖. 같은 걸음 번호 유지, 최대 5회 또는 AI 판단까지 */
+    /** 더 작게 (S-04). 같은 걸음 번호 유지, 최대 5회 (AI 연결 후에는 AI 판단까지) */
     @Transactional
     public GoalResponse.Detail shrink(User user, Long stepId) {
         Step step = findActionableStep(user, stepId);
@@ -39,17 +35,13 @@ public class StepService {
         }
         Goal goal = step.getGoal();
 
-        List<String> shrunkSteps = stepRepository
-                .findAllByGoalAndSequenceOrderByShrinkLevelAsc(goal, step.getSequence())
-                .stream()
-                .map(Step::getContent)
-                .toList();
-
-        AiStepResult ai = aiService.shrinkStep(goal.getContent(), step.getEnergyLevel(), goal.getBurdenLevel(),
-                step.getContent(), shrunkSteps);
+        // TODO(AI 연결): 현재 행동보다 더 쉬운 행동 1개 생성
+        //  - 같은 걸음에서 줄여온 행동들: stepRepository.findAllByGoalAndSequenceOrderByShrinkLevelAsc(goal, step.getSequence())
+        //  - AI 가 준 행동 문장, 더 작게 가능 여부, 마지막 걸음 여부를 아래 Step.shrunkFrom(...) 에 넣기
+        String smallerContent = TemporaryStep.shrink(step.getContent());
 
         step.markShrunk();
-        Step smaller = stepRepository.save(Step.shrunkFrom(step, ai.step(), ai.canShrinkMore(), ai.isLastStep()));
+        Step smaller = stepRepository.save(Step.shrunkFrom(step, smallerContent, true, false));
         activityRepository.save(GoalActivity.of(goal, step, ActivityType.SHRINK));
 
         return GoalResponse.Detail.of(goal, goalReader.countTried(goal), smaller);

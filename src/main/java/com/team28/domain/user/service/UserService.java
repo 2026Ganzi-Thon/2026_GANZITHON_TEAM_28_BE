@@ -6,6 +6,7 @@ import com.team28.domain.user.entity.User;
 import com.team28.domain.user.exception.UserErrorStatus;
 import com.team28.domain.user.repository.UserRepository;
 import com.team28.global.apiPayload.exception.GeneralException;
+import com.team28.global.common.TextNormalizer;
 import java.time.LocalTime;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -25,7 +26,7 @@ public class UserService {
 
     @Transactional
     public UserResponse.Info create(UserRequest.Nickname request) {
-        User user = userRepository.save(User.create(request.nickname().strip()));
+        User user = userRepository.save(User.create(TextNormalizer.clean(request.nickname())));
         return UserResponse.Info.from(user);
     }
 
@@ -36,7 +37,7 @@ public class UserService {
     @Transactional
     public UserResponse.Info updateNickname(User currentUser, UserRequest.Nickname request) {
         User user = reload(currentUser);
-        user.changeNickname(request.nickname().strip());
+        user.changeNickname(TextNormalizer.clean(request.nickname()));
         return UserResponse.Info.from(user);
     }
 
