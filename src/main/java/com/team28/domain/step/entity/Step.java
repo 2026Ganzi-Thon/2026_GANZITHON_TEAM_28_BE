@@ -55,6 +55,10 @@ public class Step extends BaseEntity {
     @Column(name = "shrink_level", nullable = false)
     private Integer shrinkLevel;
 
+    /** AI 판단으로 더 작게 만들 수 있는지 (V3). 5회 제한은 shrinkLevel 로 따로 확인 */
+    @Column(name = "can_shrink_more", nullable = false)
+    private boolean shrinkable;
+
     /** 이 행동을 받을 때 고른 에너지 1~4 */
     @JdbcTypeCode(SqlTypes.TINYINT)
     @Column(name = "energy_level", nullable = false)
@@ -76,34 +80,37 @@ public class Step extends BaseEntity {
     private LocalDateTime triedAt;
 
     private Step(Goal goal, Step parentStep, int sequence, int shrinkLevel, int energyLevel,
-                 String content, boolean lastStep) {
+                 String content, boolean shrinkable, boolean lastStep) {
         this.goal = goal;
         this.parentStep = parentStep;
         this.sequence = sequence;
         this.shrinkLevel = shrinkLevel;
         this.energyLevel = energyLevel;
-        this.content = content;
+        this.content = truncate(content);
+        this.shrinkable = shrinkable;
         this.lastStep = lastStep;
         this.status = StepStatus.SUGGESTED;
     }
 
     /** 새 걸음 (목표 생성 시 첫 걸음, 다음 걸음 받기) */
-    public static Step next(Goal goal, int sequence, int energyLevel, String content, boolean lastStep) {
-        return new Step(goal, null, sequence, 0, energyLevel, content, lastStep);
+    public static Step next(Goal goal, int sequence, int energyLevel, String content,
+                            boolean shrinkable, boolean lastStep) {
+        return new Step(goal, null, sequence, 0, energyLevel, content, shrinkable, lastStep);
     }
 
-    /** '더 작게'로 만든 행동. 같은 걸음 번호를 유지하고 shrinkLevel 만 1 올린다. */
-    public static Step shrunkFrom(Step origin, String content, boolean lastStep) {
+    /** '더 작게'로 만든 행동. 같은 걸음 번호와 에너지를 유지하고 shrinkLevel 만 1 올린다. */
+    public static Step shrunkFrom(Step origin, String content, boolean shrinkable, boolean lastStep) {
         return new Step(origin.goal, origin, origin.sequence, origin.shrinkLevel + 1,
-                origin.energyLevel, content, lastStep);
+                origin.energyLevel, content, shrinkable, lastStep);
     }
 
     public boolean isSuggested() {
         return this.status == StepStatus.SUGGESTED;
     }
 
+    /** AI 가 더 줄일 수 있다고 했고, 5회 제한에도 안 걸렸을 때만 true */
     public boolean canShrinkMore() {
-        return this.shrinkLevel < MAX_SHRINK_LEVEL;
+        return this.shrinkable && this.shrinkLevel < MAX_SHRINK_LEVEL;
     }
 
     public void markShrunk() {
@@ -113,5 +120,13 @@ public class Step extends BaseEntity {
     public void markTried() {
         this.status = StepStatus.TRIED;
         this.triedAt = LocalDateTime.now();
+    }
+
+    private static String truncate(String content) {
+        if (content == null) {
+            return "";
+        }
+        String trimmed = content.strip();
+        return trimmed.length() > 200 ? trimmed.substring(0, 200) : trimmed;
     }
 }
