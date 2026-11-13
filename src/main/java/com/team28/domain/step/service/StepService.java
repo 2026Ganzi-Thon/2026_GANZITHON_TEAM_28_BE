@@ -12,39 +12,82 @@ import com.team28.domain.step.entity.Step;
 import com.team28.domain.step.exception.StepErrorStatus;
 import com.team28.domain.step.repository.StepRepository;
 import com.team28.domain.user.entity.User;
+import com.team28.global.ai.AiErrorStatus;
+import com.team28.global.ai.AiStepClient;
+import com.team28.global.ai.AiStepResult;
 import com.team28.global.apiPayload.exception.GeneralException;
+import com.team28.domain.step.enums.StepStatus;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class StepService {
 
+    /** AI 가 받는 shrinkHistory 최대 개수 */
+    private static final int MAX_HISTORY = 5;
+
     private final StepRepository stepRepository;
     private final GoalActivityRepository activityRepository;
     private final GoalReader goalReader;
+    private final AiStepClient aiStepClient;
+    private final TransactionTemplate tx;
 
-    /** 더 작게 (S-04). 같은 걸음 번호 유지, 최대 5회 (AI 연결 후에는 AI 판단까지) */
-    @Transactional
+    /**
+     * 더 작게 (S-04). 같은 걸음 번호 유지.
+     * 횟수 제한은 Step.canShrinkMore() (AI 판단 + 최대 횟수) 로 확인하고, AI 는 트랜잭션 밖에서 부른다.
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public GoalResponse.Detail shrink(User user, Long stepId) {
-        Step step = findActionableStep(user, stepId);
-        if (!step.canShrinkMore()) {
-            throw new GeneralException(StepErrorStatus.CANNOT_SHRINK_MORE);
+        // 1) 읽기·검증, AI 에 보낼 값 모으기
+        AiStepClient.ShrinkCommand command = tx.execute(status -> {
+            Step step = findActionableStep(user, stepId);
+            if (!step.canShrinkMore()) {
+                throw new GeneralException(StepErrorStatus.CANNOT_SHRINK_MORE);
+            }
+            Goal goal = step.getGoal();
+            List<String> history = stepRepository
+                    .findAllByGoalAndSequenceOrderByShrinkLevelAsc(goal, step.getSequence()).stream()
+                    .map(Step::getContent)
+                    .toList();
+            if (history.size() > MAX_HISTORY) {
+                history = history.subList(history.size() - MAX_HISTORY, history.size());
+            }
+            List<String> recentTries = stepRepository
+                    .findTop5ByGoalAndStatusOrderByTriedAtDesc(goal, StepStatus.TRIED).stream()
+                    .map(Step::getContent)
+                    .toList();
+            return new AiStepClient.ShrinkCommand(
+                    goal.getContent(),
+                    step.getEnergyLevel(),
+                    goal.getBurdenLevel(),
+                    step.getContent(),
+                    history,
+                    step.getShrinkLevel(),
+                    step.isLastStep(),
+                    recentTries);
+        });
+
+        // 2) AI 호출 (트랜잭션 밖). 더 작게에서는 위기 판정을 쓰지 않으므로 위기 응답은 비정상 응답으로 본다.
+        AiStepResult ai = aiStepClient.shrink(command);
+        if (ai.crisis()) {
+            throw new GeneralException(AiErrorStatus.BAD_RESPONSE);
         }
-        Goal goal = step.getGoal();
 
-        // TODO(AI 연결): 현재 행동보다 더 쉬운 행동 1개 생성
-        //  - 같은 걸음에서 줄여온 행동들: stepRepository.findAllByGoalAndSequenceOrderByShrinkLevelAsc(goal, step.getSequence())
-        //  - AI 가 준 행동 문장, 더 작게 가능 여부, 마지막 걸음 여부를 아래 Step.shrunkFrom(...) 에 넣기
-        String smallerContent = TemporaryStep.shrink(step.getContent());
-
-        step.markShrunk();
-        Step smaller = stepRepository.save(Step.shrunkFrom(step, smallerContent, true, false));
-        activityRepository.save(GoalActivity.of(goal, step, ActivityType.SHRINK));
-
-        return GoalResponse.Detail.of(goal, goalReader.countTried(goal), smaller);
+        // 3) 저장. 더블 탭 등으로 그 사이 처리된 행동이면 STEP409 (findActionableStep 이 다시 확인)
+        return tx.execute(status -> {
+            Step step = findActionableStep(user, stepId);
+            Goal goal = step.getGoal();
+            step.markShrunk();
+            Step smaller = stepRepository.save(Step.shrunkFrom(step, ai.step(), ai.canShrinkMore(), ai.lastStep()));
+            activityRepository.save(GoalActivity.of(goal, step, ActivityType.SHRINK));
+            return GoalResponse.Detail.of(goal, goalReader.countTried(goal), smaller);
+        });
     }
 
     /**

@@ -38,5 +38,8 @@ app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
   ai:
-    api-key: ${AI_API_KEY:}
-    model: ${AI_MODEL:}
+    enabled: ${AI_ENABLED:true}           # false 면 AI 서버 없이 임시 문장 (로컬 개발용)
+    base-url: ${AI_BASE_URL:http://localhost:8000}
+    internal-key: ${AI_INTERNAL_KEY:}     # AI 서버의 AI_INTERNAL_KEY 와 같은 값
+    connect-timeout: 2s
+    read-timeout: 12s
