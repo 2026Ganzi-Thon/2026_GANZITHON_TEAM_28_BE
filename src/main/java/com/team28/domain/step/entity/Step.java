@@ -68,6 +68,10 @@ public class Step extends BaseEntity {
     @Column(nullable = false, length = 200)
     private String content;
 
+    /** AI 가 쓴 이유 문구 (V4). 없으면 null */
+    @Column(length = 100)
+    private String reason;
+
     /** AI가 마지막 걸음으로 판단했는지. true 면 '해봤어요' 후 S-07(목표 종료)로 안내 */
     @Column(name = "is_last_step", nullable = false)
     private boolean lastStep;
@@ -81,28 +85,29 @@ public class Step extends BaseEntity {
     private LocalDateTime triedAt;
 
     private Step(Goal goal, Step parentStep, int sequence, int shrinkLevel, int energyLevel,
-                 String content, boolean shrinkable, boolean lastStep) {
+                 String content, String reason, boolean shrinkable, boolean lastStep) {
         this.goal = goal;
         this.parentStep = parentStep;
         this.sequence = sequence;
         this.shrinkLevel = shrinkLevel;
         this.energyLevel = energyLevel;
         this.content = truncate(content);
+        this.reason = reason == null || reason.isBlank() ? null : reason.strip();
         this.shrinkable = shrinkable;
         this.lastStep = lastStep;
         this.status = StepStatus.SUGGESTED;
     }
 
     /** 새 걸음 (목표 생성 시 첫 걸음, 다음 걸음 받기) */
-    public static Step next(Goal goal, int sequence, int energyLevel, String content,
+    public static Step next(Goal goal, int sequence, int energyLevel, String content, String reason,
                             boolean shrinkable, boolean lastStep) {
-        return new Step(goal, null, sequence, 0, energyLevel, content, shrinkable, lastStep);
+        return new Step(goal, null, sequence, 0, energyLevel, content, reason, shrinkable, lastStep);
     }
 
     /** '더 작게'로 만든 행동. 같은 걸음 번호와 에너지를 유지하고 shrinkLevel 만 1 올린다. */
-    public static Step shrunkFrom(Step origin, String content, boolean shrinkable, boolean lastStep) {
+    public static Step shrunkFrom(Step origin, String content, String reason, boolean shrinkable, boolean lastStep) {
         return new Step(origin.goal, origin, origin.sequence, origin.shrinkLevel + 1,
-                origin.energyLevel, content, shrinkable, lastStep);
+                origin.energyLevel, content, reason, shrinkable, lastStep);
     }
 
     public boolean isSuggested() {

@@ -3,7 +3,7 @@ package com.team28.domain.ai.dto;
 /**
  * AI 서버가 돌려준 걸음 1개.
  * crisis=true 면 step 은 null 이고 아무것도 저장하지 않는다.
- * reason(이유 문구)은 아직 저장하지 않는다 (팀 확인 후 steps 컬럼 추가 예정).
+ * reason(이유 문구)은 steps.reason 에 저장한다 (V4). 없으면 null.
  */
 public record AiStepResult(boolean crisis, String step, boolean canShrinkMore, boolean lastStep, String reason) {
 

@@ -90,7 +90,7 @@ public class GoalService {
             Goal goal = goalRepository.save(
                     Goal.create(user, content, request.energyLevel(), request.burdenLevel()));
             Step first = stepRepository.save(
-                    Step.next(goal, 1, request.energyLevel(), ai.step(), ai.canShrinkMore(), false));
+                    Step.next(goal, 1, request.energyLevel(), ai.step(), ai.reason(), ai.canShrinkMore(), false));
             return GoalCreateResult.of(GoalResponse.Detail.of(goal, 0, first));
         });
     }
@@ -150,7 +150,7 @@ public class GoalService {
                 throw new GeneralException(StepErrorStatus.CURRENT_STEP_EXISTS);
             }
             Step step = stepRepository.save(Step.next(
-                    goal, plan.sequence(), plan.command().energy(), ai.step(), ai.canShrinkMore(), ai.lastStep()));
+                    goal, plan.sequence(), plan.command().energy(), ai.step(), ai.reason(), ai.canShrinkMore(), ai.lastStep()));
             return GoalResponse.Detail.of(goal, goalReader.countTried(goal), step);
         });
     }

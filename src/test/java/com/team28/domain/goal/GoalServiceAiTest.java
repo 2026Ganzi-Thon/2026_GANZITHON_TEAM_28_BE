@@ -76,6 +76,7 @@ class GoalServiceAiTest {
         assertThat(result.crisis()).isFalse();
         GoalResponse.CurrentStep step = result.goal().currentStep();
         assertThat(step.content()).isEqualTo("책상 위 쓰레기 1개만 버리기");
+        assertThat(step.reason()).isEqualTo("이유");
         assertThat(step.canShrinkMore()).isTrue();
         assertThat(step.isLastStep()).isFalse();
         assertThat(step.sequence()).isEqualTo(1);
@@ -125,7 +126,7 @@ class GoalServiceAiTest {
     @Test
     void next_step_sends_energy_change_history_and_saves_ai_step_with_last_flag() {
         Goal goal = goalWithEnergy(2);
-        Step tried = Step.next(goal, 3, 2, "바닥 옷 줍기", true, false);
+        Step tried = Step.next(goal, 3, 2, "바닥 옷 줍기", null, true, false);
         when(goalReader.findOwnedGoal(user, 10L)).thenReturn(goal);
         when(goalReader.findCurrentStep(goal)).thenReturn(null);
         when(goalReader.countTried(goal)).thenReturn(3L);
@@ -155,7 +156,7 @@ class GoalServiceAiTest {
     void next_step_with_existing_current_step_does_not_call_ai() {
         Goal goal = goalWithEnergy(2);
         when(goalReader.findOwnedGoal(user, 10L)).thenReturn(goal);
-        when(goalReader.findCurrentStep(goal)).thenReturn(Step.next(goal, 1, 2, "x", true, false));
+        when(goalReader.findCurrentStep(goal)).thenReturn(Step.next(goal, 1, 2, "x", null, true, false));
 
         assertThatThrownBy(() -> service.nextStep(user, 10L, new GoalRequest.NextStep(2)))
                 .isInstanceOf(GeneralException.class);

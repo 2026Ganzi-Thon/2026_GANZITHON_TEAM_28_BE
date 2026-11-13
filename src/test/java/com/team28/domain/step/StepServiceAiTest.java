@@ -54,7 +54,7 @@ class StepServiceAiTest {
         ReflectionTestUtils.setField(user, "id", 1L);
         Goal goal = Goal.create(user, "방 청소하기", 2, 4);
         ReflectionTestUtils.setField(goal, "status", GoalStatus.IN_PROGRESS);
-        current = Step.next(goal, 2, 2, "옷 1벌 줍기", true, true);
+        current = Step.next(goal, 2, 2, "옷 1벌 줍기", null, true, true);
         when(stepRepository.findById(5L)).thenReturn(Optional.of(current));
         when(stepRepository.save(any(Step.class))).thenAnswer(i -> i.getArgument(0));
         when(stepRepository.findAllByGoalAndSequenceOrderByShrinkLevelAsc(any(), any()))
@@ -64,7 +64,7 @@ class StepServiceAiTest {
 
     @Test
     void shrink_sends_history_and_saves_smaller_step_keeping_last_flag() {
-        when(ai.shrink(any())).thenReturn(AiStepResult.of("옷 1벌 바라보기", false, true, null));
+        when(ai.shrink(any())).thenReturn(AiStepResult.of("옷 1벌 바라보기", false, true, "부담스러울 수 있어서 나눠봤어요"));
 
         GoalResponse.Detail detail = service.shrink(user, 5L);
 
@@ -81,6 +81,7 @@ class StepServiceAiTest {
         assertThat(current.getStatus()).isEqualTo(StepStatus.SHRUNK);
         GoalResponse.CurrentStep smaller = detail.currentStep();
         assertThat(smaller.content()).isEqualTo("옷 1벌 바라보기");
+        assertThat(smaller.reason()).isEqualTo("부담스러울 수 있어서 나눠봤어요");
         assertThat(smaller.canShrinkMore()).isFalse();
         assertThat(smaller.shrinkLevel()).isEqualTo(1);
         assertThat(smaller.sequence()).isEqualTo(2);

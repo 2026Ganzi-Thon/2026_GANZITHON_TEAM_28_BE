@@ -84,7 +84,7 @@ public class StepService {
             Step step = findActionableStep(user, stepId);
             Goal goal = step.getGoal();
             step.markShrunk();
-            Step smaller = stepRepository.save(Step.shrunkFrom(step, ai.step(), ai.canShrinkMore(), ai.lastStep()));
+            Step smaller = stepRepository.save(Step.shrunkFrom(step, ai.step(), ai.reason(), ai.canShrinkMore(), ai.lastStep()));
             activityRepository.save(GoalActivity.of(goal, step, ActivityType.SHRINK));
             return GoalResponse.Detail.of(goal, goalReader.countTried(goal), smaller);
         });
