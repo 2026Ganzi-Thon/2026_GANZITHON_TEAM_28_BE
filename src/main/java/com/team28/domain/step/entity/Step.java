@@ -31,8 +31,8 @@ import org.hibernate.type.SqlTypes;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Step extends BaseEntity {
 
-    /** 같은 걸음에서 더 작게 최대 횟수 (Figma 확정 사항 #4: 3번) */
-    public static final int MAX_SHRINK_LEVEL = 3;
+    /** 같은 걸음에서 더 작게 최대 횟수. API 명세서·ERD 는 5번, Figma 확정 사항 #4 는 3번이라 팀 확인 필요 */
+    public static final int MAX_SHRINK_LEVEL = 5;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -51,7 +51,7 @@ public class Step extends BaseEntity {
     @Column(nullable = false)
     private Integer sequence;
 
-    /** 같은 걸음 안에서 줄인 횟수 0~3 (V2 컬럼 주석은 0~5 로 남아 있음) */
+    /** 같은 걸음 안에서 줄인 횟수 0~5 */
     @JdbcTypeCode(SqlTypes.TINYINT)
     @Column(name = "shrink_level", nullable = false)
     private Integer shrinkLevel;

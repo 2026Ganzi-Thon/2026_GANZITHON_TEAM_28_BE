@@ -48,3 +48,7 @@ jobs:
           MYSQL_DATABASE: team28
           MYSQL_USER: team28
           MYSQL_PASSWORD: team28pw
+          # AI 서버 (테스트용 더미값. 실제 값은 Secrets)
+          AI_ENABLED: "false"
+          AI_BASE_URL: http://localhost:8000
+          AI_INTERNAL_KEY: dummy-key

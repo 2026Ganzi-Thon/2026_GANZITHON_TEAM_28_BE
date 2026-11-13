@@ -16,7 +16,7 @@ public class StubAiStepClient implements AiStepClient {
 
     @Override
     public AiStepResult shrink(ShrinkCommand c) {
-        boolean more = c.shrinkCount() + 1 < 3;
+        boolean more = c.shrinkCount() + 1 < 5;
         return AiStepResult.of("[임시] '" + c.currentStep() + "'의 첫 동작만 해보기", more, c.lastStep(), "[임시] 더 작게 나눠봤어요");
     }
 
