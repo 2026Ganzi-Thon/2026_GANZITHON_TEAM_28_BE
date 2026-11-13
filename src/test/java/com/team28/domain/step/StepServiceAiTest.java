@@ -19,9 +19,9 @@ import com.team28.domain.step.exception.StepErrorStatus;
 import com.team28.domain.step.repository.StepRepository;
 import com.team28.domain.step.service.StepService;
 import com.team28.domain.user.entity.User;
-import com.team28.global.ai.AiErrorStatus;
-import com.team28.global.ai.AiStepClient;
-import com.team28.global.ai.AiStepResult;
+import com.team28.domain.ai.exception.AiErrorStatus;
+import com.team28.domain.ai.service.AiStepClient;
+import com.team28.domain.ai.dto.AiStepResult;
 import com.team28.global.apiPayload.exception.GeneralException;
 import java.util.List;
 import java.util.Optional;
@@ -89,11 +89,11 @@ class StepServiceAiTest {
 
     @Test
     void shrink_ai_failure_leaves_step_untouched() {
-        when(ai.shrink(any())).thenThrow(new GeneralException(AiErrorStatus.UNAVAILABLE));
+        when(ai.shrink(any())).thenThrow(new GeneralException(AiErrorStatus.BAD_RESPONSE));
 
         assertThatThrownBy(() -> service.shrink(user, 5L))
                 .isInstanceOfSatisfying(GeneralException.class,
-                        e -> assertThat(e.getStatus()).isEqualTo(AiErrorStatus.UNAVAILABLE));
+                        e -> assertThat(e.getStatus()).isEqualTo(AiErrorStatus.BAD_RESPONSE));
         assertThat(current.getStatus()).isEqualTo(StepStatus.SUGGESTED);
         verify(stepRepository, never()).save(any());
     }

@@ -1,4 +1,4 @@
-package com.team28.global.ai;
+package com.team28.domain.ai.dto;
 
 /**
  * AI 서버가 돌려준 걸음 1개.

@@ -31,7 +31,8 @@ import org.hibernate.type.SqlTypes;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Step extends BaseEntity {
 
-    public static final int MAX_SHRINK_LEVEL = 5;
+    /** 같은 걸음에서 더 작게 최대 횟수 (Figma 확정 사항 #4: 3번) */
+    public static final int MAX_SHRINK_LEVEL = 3;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -50,12 +51,12 @@ public class Step extends BaseEntity {
     @Column(nullable = false)
     private Integer sequence;
 
-    /** 같은 걸음 안에서 줄인 횟수 0~5 */
+    /** 같은 걸음 안에서 줄인 횟수 0~3 (V2 컬럼 주석은 0~5 로 남아 있음) */
     @JdbcTypeCode(SqlTypes.TINYINT)
     @Column(name = "shrink_level", nullable = false)
     private Integer shrinkLevel;
 
-    /** AI 판단으로 더 작게 만들 수 있는지 (V3). 5회 제한은 shrinkLevel 로 따로 확인 */
+    /** AI 판단으로 더 작게 만들 수 있는지 (V3). 횟수 제한(MAX_SHRINK_LEVEL)은 shrinkLevel 로 따로 확인 */
     @Column(name = "can_shrink_more", nullable = false)
     private boolean shrinkable;
 
@@ -108,7 +109,7 @@ public class Step extends BaseEntity {
         return this.status == StepStatus.SUGGESTED;
     }
 
-    /** AI 가 더 줄일 수 있다고 했고, 5회 제한에도 안 걸렸을 때만 true */
+    /** AI 가 더 줄일 수 있다고 했고, 횟수 제한에도 안 걸렸을 때만 true */
     public boolean canShrinkMore() {
         return this.shrinkable && this.shrinkLevel < MAX_SHRINK_LEVEL;
     }

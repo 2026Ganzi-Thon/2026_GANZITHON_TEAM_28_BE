@@ -1,5 +1,6 @@
-package com.team28.global.ai;
+package com.team28.domain.ai.service;
 
+import com.team28.domain.ai.dto.AiStepResult;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 

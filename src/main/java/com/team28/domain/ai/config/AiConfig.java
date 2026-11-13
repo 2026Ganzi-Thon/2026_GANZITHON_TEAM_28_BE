@@ -1,4 +1,4 @@
-package com.team28.global.ai;
+package com.team28.domain.ai.config;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;

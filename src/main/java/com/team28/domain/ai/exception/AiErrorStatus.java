@@ -1,4 +1,4 @@
-package com.team28.global.ai;
+package com.team28.domain.ai.exception;
 
 import com.team28.global.apiPayload.code.BaseStatus;
 import lombok.Getter;
@@ -10,8 +10,9 @@ import org.springframework.http.HttpStatus;
 @RequiredArgsConstructor
 public enum AiErrorStatus implements BaseStatus {
 
+    /** AI 응답 형식 오류, AI 서버 5xx(502·503), 연결 실패. 1회 재시도 후에도 실패한 경우 (AI 명세: AI503 은 502 로 변환) */
     BAD_RESPONSE(HttpStatus.BAD_GATEWAY, "AI502", "AI 응답을 처리하지 못했어요. 다시 시도해 주세요."),
-    UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI503", "AI를 지금 사용할 수 없어요. 잠시 후 다시 시도해 주세요."),
+    /** 1회 재시도 후에도 응답 시간 초과 */
     TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "AI504", "AI 응답이 늦어지고 있어요. 다시 시도해 주세요.");
 
     private final HttpStatus httpStatus;

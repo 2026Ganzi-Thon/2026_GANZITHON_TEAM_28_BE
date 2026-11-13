@@ -1,5 +1,7 @@
-package com.team28.global.ai;
+package com.team28.domain.ai.service;
 
+import com.team28.domain.ai.exception.AiErrorStatus;
+import com.team28.domain.ai.dto.AiStepResult;
 import java.util.List;
 
 /**
