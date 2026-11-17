@@ -42,4 +42,5 @@ app:
     base-url: ${AI_BASE_URL:http://localhost:8000}
     internal-key: ${AI_INTERNAL_KEY:}     # AI 서버의 AI_INTERNAL_KEY 와 같은 값
     connect-timeout: 2s
-    read-timeout: 7s            # AI LLM 6초 + 여유. 재시도 1회 포함 14초 < 프론트 15초
+    read-timeout: 7s            # AI LLM 6초 + 여유
+    total-timeout: 13s          # 재시도 포함 전체 예산 < 프론트 15초. 시간 초과는 재시도하지 않음
