@@ -14,7 +14,10 @@ public record AiProperties(
         @DefaultValue("http://localhost:8000") String baseUrl,
         @DefaultValue("") String internalKey,
         @DefaultValue("2s") Duration connectTimeout,
-        // AI 서버 LLM 제한(6초)보다 약간 길게. 1회 재시도까지 합쳐 프론트 오류 모달(15초) 안에 끝나야 한다 (7초 x 2 = 14초)
-        @DefaultValue("7s") Duration readTimeout
+        // AI 서버 LLM 제한(6초)보다 약간 길게
+        @DefaultValue("7s") Duration readTimeout,
+        // 재시도를 포함한 전체 시간 예산. 프론트 오류 모달(15초)보다 짧게 둔다.
+        // 시간 초과는 재시도하지 않고, 그 밖의 실패는 남은 시간이 연결+읽기(9초) 이상일 때만 재시도한다.
+        @DefaultValue("13s") Duration totalTimeout
 ) {
 }
