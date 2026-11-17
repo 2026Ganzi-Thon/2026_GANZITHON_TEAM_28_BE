@@ -1,0 +1,33 @@
+# EC2 배포용: 백엔드 + AI 서버를 한 서버(t3.small)에서 같이 실행합니다.
+# EC2 에서 이 파일과 같은 폴더에 아래 3개 파일을 만들고 실행하세요. (전부 Git 에 올리지 않음)
+#   .env         → DOCKERHUB_ID=<도커허브 아이디>
+#   backend.env  → .env.prod.example 참고 (AI_BASE_URL=http://ai:8000)
+#   ai.env       → ai.env.example 참고
+# 실행:  docker compose -f docker-compose.prod.yml up -d
+# 확인:  docker compose -f docker-compose.prod.yml ps / logs -f backend
+services:
+  backend:
+    image: ${DOCKERHUB_ID}/team28-backend:latest
+    container_name: team28-backend
+    env_file: backend.env
+    ports:
+      - "8080:8080"
+    depends_on:
+      ai:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ai:
+    image: ${DOCKERHUB_ID}/team28-ai:latest
+    container_name: team28-ai
+    env_file: ai.env
+    # AI 서버는 외부에 열지 않고 백엔드만 http://ai:8000 으로 호출합니다.
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ai/v1/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    restart: unless-stopped
