@@ -15,6 +15,7 @@ public class GoalResponse {
     public record CurrentStep(
             Long stepId,
             String content,
+            String reason,
             int sequence,
             int shrinkLevel,
             int energy,
@@ -25,7 +26,7 @@ public class GoalResponse {
             if (step == null) {
                 return null;
             }
-            return new CurrentStep(step.getId(), step.getContent(), step.getSequence(), step.getShrinkLevel(),
+            return new CurrentStep(step.getId(), step.getContent(), step.getReason(), step.getSequence(), step.getShrinkLevel(),
                     step.getEnergyLevel(), step.canShrinkMore(), step.isLastStep());
         }
     }

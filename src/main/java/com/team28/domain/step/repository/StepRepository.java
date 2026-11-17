@@ -22,4 +22,7 @@ public interface StepRepository extends JpaRepository<Step, Long> {
     List<Step> findAllByGoalAndSequenceOrderByShrinkLevelAsc(Goal goal, Integer sequence);
 
     List<Step> findTop5ByGoalAndStatusOrderByTriedAtDesc(Goal goal, StepStatus status);
+
+    /** 이미 마지막 걸음(마무리 제안)이 나온 목표인지. 목표당 1번만 제안한다. */
+    boolean existsByGoalAndLastStepTrue(Goal goal);
 }
