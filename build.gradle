@@ -54,3 +54,8 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+// bootJar 만 만들기 (plain jar 가 같이 생기면 Dockerfile 의 COPY 가 헷갈림)
+tasks.named('jar') {
+    enabled = false
+}
