@@ -47,6 +47,10 @@ class HttpAiStepClientTest {
     }
 
     private HttpAiStepClient client(Resp... responses) throws IOException {
+        return client(Duration.ofSeconds(10), responses);
+    }
+
+    private HttpAiStepClient client(Duration totalTimeout, Resp... responses) throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/", exchange -> {
             int index = Math.min(calls.getAndIncrement(), responses.length - 1);
@@ -74,7 +78,7 @@ class HttpAiStepClientTest {
         server.start();
         return new HttpAiStepClient(new AiProperties(
                 true, "http://127.0.0.1:" + server.getAddress().getPort(), "secret",
-                Duration.ofSeconds(1), Duration.ofMillis(500)));
+                Duration.ofSeconds(1), Duration.ofMillis(500), totalTimeout));
     }
 
     private static AiErrorStatus statusOf(Throwable t) {
@@ -144,18 +148,29 @@ class HttpAiStepClientTest {
     }
 
     @Test
-    void ai_504_twice_is_timeout() throws Exception {
+    void ai_504_is_timeout_and_not_retried() throws Exception {
         HttpAiStepClient client = client(Resp.status(504));
         assertThatThrownBy(() -> client.first("g", 1, 1))
                 .satisfies(t -> assertThat(statusOf(t)).isEqualTo(AiErrorStatus.TIMEOUT));
-        assertThat(calls).hasValue(2);
+        assertThat(calls).hasValue(1);
     }
 
     @Test
-    void slow_response_twice_is_timeout() throws Exception {
+    void slow_response_is_timeout_and_not_retried() throws Exception {
         HttpAiStepClient client = client(new Resp(200, OK, 1500));
         assertThatThrownBy(() -> client.first("g", 1, 1))
                 .satisfies(t -> assertThat(statusOf(t)).isEqualTo(AiErrorStatus.TIMEOUT));
+        Thread.sleep(1200); // 서버가 느린 응답을 끝낼 때까지 기다린 뒤에도 두 번째 호출이 없어야 한다
+        assertThat(calls).hasValue(1);
+    }
+
+    @Test
+    void retry_is_skipped_when_time_budget_is_short() throws Exception {
+        // 한 번에 최대 1.5초(연결 1초 + 읽기 0.5초)인데 전체 예산이 1.6초이고 첫 호출이 0.3초 걸리면 재시도할 시간이 없다
+        HttpAiStepClient client = client(Duration.ofMillis(1600), new Resp(503, "{}", 300), Resp.ok());
+        assertThatThrownBy(() -> client.first("g", 1, 1))
+                .satisfies(t -> assertThat(statusOf(t)).isEqualTo(AiErrorStatus.BAD_RESPONSE));
+        assertThat(calls).hasValue(1);
     }
 
     @Test
@@ -178,7 +193,7 @@ class HttpAiStepClientTest {
     @Test
     void connection_refused_is_ai502() {
         HttpAiStepClient client = new HttpAiStepClient(new AiProperties(
-                true, "http://127.0.0.1:1", "k", Duration.ofMillis(500), Duration.ofMillis(500)));
+                true, "http://127.0.0.1:1", "k", Duration.ofMillis(500), Duration.ofMillis(500), Duration.ofSeconds(10)));
         assertThatThrownBy(() -> client.first("g", 1, 1))
                 .satisfies(t -> assertThat(statusOf(t)).isEqualTo(AiErrorStatus.BAD_RESPONSE));
     }
